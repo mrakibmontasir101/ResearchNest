@@ -1,0 +1,40 @@
+digraph G {
+  graph [rankdir=TB, fontname="Arial", fontsize=22, label="ResearchNest deployment architecture (cloud)", labelloc=t, nodesep=0.55, ranksep=0.65, pad=0.3, dpi=150, bgcolor="white", newrank=true];
+  node [shape=box, style="rounded,filled", fillcolor="#EEF3F8", color="#4C6275", fontname="Arial", fontsize=12, penwidth=1.3, margin="0.18,0.1"];
+  edge [color="#5F7584", fontname="Arial", fontsize=10.5, penwidth=1.2, arrowsize=0.8];
+
+  user [label="User's browser\nComputer, tablet or phone", fillcolor="#E9F5F1"];
+
+  subgraph cluster_cdn { label="Static hosting + CDN"; fontsize=13; style="rounded,dashed"; color="#7A8C99";
+    fe [label="Frontend (built React files)\nHTML, JS, CSS"]; }
+
+  subgraph cluster_cloud { label="Cloud platform (container hosting)"; fontsize=13; style="rounded,dashed"; color="#0F7A7A";
+    lb [label="HTTPS endpoint / load balancer\nTLS, routes /api traffic", fillcolor="#FFF6E5", color="#B7832F"];
+    api [label="Backend container (modular monolith)\nDjango REST Framework + Gunicorn\nstateless, scales by adding copies"];
+    worker [label="Worker container\nOpenAlex import, post expiry,\ndeadline reminders (scheduled)"];
+    env [label="Environment variables / secrets\nSECRET_KEY, DATABASE_URL, email keys", shape=note, fillcolor="#F6F6F6"];
+    db [label="Managed PostgreSQL\ndaily backups", shape=cylinder, fillcolor="#E8EDF7"];
+  }
+
+  oa [label="OpenAlex REST API\n(external)", fillcolor="#FFFFFF"];
+  mail [label="Email service\n(external, SMTP/API)", fillcolor="#FFFFFF"];
+
+  subgraph cluster_ci { label="Source control and delivery"; fontsize=13; style="rounded,dashed"; color="#7A8C99";
+    gh [label="GitHub repository"]; ci [label="GitHub Actions (CI/CD)\ntests, build, deploy"]; }
+
+  user -> fe [label=" loads pages (HTTPS)"];
+  user -> lb [label=" JSON API calls (HTTPS)"];
+  lb -> api;
+  api -> db [label=" ORM, transactions"];
+  worker -> db;
+  worker -> oa [label=" scoped imports"];
+  api -> mail [label=" verification email"];
+  worker -> mail [label=" reminders"];
+  env -> api [style=dashed, arrowhead=none];
+  env -> worker [style=dashed, arrowhead=none];
+  gh -> ci [label=" on push"];
+  ci -> fe [label=" deploy frontend", style=dashed];
+  ci -> api [label=" deploy containers", style=dashed];
+  { rank=same; api; worker; }
+  { rank=same; db; env; }
+}
